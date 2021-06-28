@@ -16,7 +16,8 @@ __email__ = 'knut-henning@hotmail.com'
 
 def import_activity(data_path):
     """
-    Imports activity data from given path.
+    Imports activity data from given path, adds 'Kalv' column with boolean expressions, corrects time and sets
+    datatype.
 
     Parameters
     ----------
@@ -29,7 +30,22 @@ def import_activity(data_path):
         Dataframe object of csv file. 
 
     """
-    return pd.read_csv(data_path, header=0, delimiter=';', dtype=str)
+    # Import csv
+    activity_data = pd.read_csv(data_path, header=0, delimiter=';', dtype=str)
+    
+    # Finds instances in "Type dyr" that contains "kalv", sets column value to True
+    activity_data['Kalv'] = activity_data['Type dyr'].map(lambda x: 'kalv' in x)
+    
+    # Removes ' from the datetime string (occurs in Nofence provided activity data)
+    activity_data['Tid'] = activity_data['Tid'].str.rstrip("'")
+    
+    # Convert 'Tid' from 'str' to 'datetime'
+    activity_data['Tid'] = pd.to_datetime(activity_data['Tid'])
+    
+    # Convert "Nofence ID" type from "str" to "int64"
+    activity_data['Nofence ID'] = activity_data['Nofence ID'].astype('int64')
+    
+    return activity_data
 
 
 def correction_activity(activity_data):
@@ -49,7 +65,7 @@ def correction_activity(activity_data):
 
     """
     # Correct column names
-    columns = ['Nofence ID', 'ID', 'Type dyr', 'Tid', 'Aktivitet', 'Dier kalv', 'Kommentar']
+    columns = ['Nofence ID', 'ID', 'Type dyr', 'Tid', 'Aktivitet', 'Dier kalv', 'Kommentar', 'Kalv']
     
     # Sets the correct column names
     activity_data.columns = columns
@@ -64,64 +80,11 @@ def correction_activity(activity_data):
     # Removes rows that contain the word "Aktivitet" in the column "Aktivitet"
     activity_data = activity_data[~activity_data['Aktivitet'].str.contains('Aktivitet')]
     activity_data = activity_data.reset_index(drop=True)
-    
-    # Removes rows that contain the word "ny klave" in the column "Nofence ID"
-    activity_data = activity_data[~activity_data['Nofence ID'].str.contains('ny klave')]
-    activity_data = activity_data.reset_index(drop=True)
 
     return activity_data
 
-
-def create_kalv(activity_data):
-    """
-    Creates a new column that specifies if the activity is from a calf or cow.
-    "Kalv" (calf) True or False
-
-    Parameters
-    ----------
-    activity_data : pd.DataFrame
-        Activity dataframe to create "Kalv" column on.
-
-    Returns
-    -------
-    pd.DataFrame
-        Activity dataframe with added column "Kalv"
-
-    """
-    # Finds instances in "Type dyr" that contains "kalv", sets column value to True
-    activity_data['Kalv'] = activity_data['Type dyr'].map(lambda x: 'kalv' in x)
     
-    return activity_data
-
-
-def activity_set_datatypes(activity_data):
-    """
-    Sets different datatypes for activity dataframe.
-
-    Parameters
-    ----------
-    activity_data : pd.DataFrame
-        Dataframe to set datatypes for
-
-    Returns
-    -------
-    activity_data : pd.Dataframe
-        Dataframe with set datatypes
-
-    """
-    # Removes ' from the datetime string (occurs in Nofence provided activity data)
-    activity_data['Tid'] = activity_data['Tid'].str.rstrip("'")
-    
-    # Convert 'Tid' from 'str' to 'datetime'
-    activity_data['Tid'] = pd.to_datetime(activity_data['Tid'])
-    
-    # Convert "Nofence ID" type from "str" to "int64"
-    activity_data['Nofence ID'] = activity_data['Nofence ID'].astype('int64')
-    
-    return activity_data
-
-    
-def offset_time(activity_data, column='Tid', offset=-2):
+def offset_time(activity_data, column='Tid', hour=-2, finetune=False, second=0):
     """
     Offset time of datetime column. (mainly used to convert datetime from CEST to UTC)
 
@@ -131,16 +94,23 @@ def offset_time(activity_data, column='Tid', offset=-2):
         Dataframe to offset datetime on
     column : str, optional
         Name of column to do the offset on. The default is 'Tid'.
-    offset : int, optional
+    hour : int, optional
         Number of hours to offset. The default is -2.
-
+    finetune : boolean, optional
+        Specify if finetuning of seconds is wanted
+    second : int, optional
+        Number of seconds to finetune
     Returns
     -------
     activity_data : pd.DataFrame
         DataFrame with offset datetime values.
 
     """
-    activity_data[column] = activity_data[column] + pd.DateOffset(hours=offset)
+    if finetune:
+        activity_data[column] = activity_data[column] + pd.DateOffset(hours=hour, seconds=second)
+    
+    else:
+        activity_data[column] = activity_data[column] + pd.DateOffset(hours=hour)
     
     return activity_data
 
@@ -321,7 +291,7 @@ def acc_time_corr(acc_data):
     """
     times = acc_data[['date', 'header_date']]
     unique_time = times.drop_duplicates(subset=['header_date'])
-    unique_time['time_delta'] = unique_time['header_date'] - unique_time['header_date'].shift()
+    unique_time.loc[:,'time_delta'] = unique_time.loc[:,'header_date'] - unique_time.loc[:,'header_date'].shift()
     unique_time = unique_time.append({'time_delta': timedelta(seconds = 3)}, ignore_index=True)
     
     time_iterator = unique_time.iterrows()
@@ -332,7 +302,7 @@ def acc_time_corr(acc_data):
         df_dt = pd.to_timedelta(acc_data['index'].iloc[(i-1)*32:32+((i-1)*32)] * dt, unit='s')
         acc_data['header_date'].iloc[(i-1)*32:32+((i-1)*32)] = acc_data['header_date'].iloc[(i-1)*32:32+((i-1)*32)] \
             + df_dt
-        acc_data['header_date'] = acc_data.header_date.dt.ceil(freq='s')  
+        acc_data.loc[:,'header_date'] = acc_data.header_date.dt.ceil(freq='s')  
         
     return acc_data
 
@@ -361,7 +331,7 @@ def import_aks(serials, start_stop):
                                             'norm'])
     for serial in serials:
         # Import files
-        df_acc = pd.read_csv('akselerometer_kalvelykke\kalvelykke-{0}.csv'.format(serial), header=1)
+        df_acc = pd.read_csv('accelerometer\\kalvelykke-{0}.csv'.format(serial), header=1)
         # Convert 'date' from str to datetime
         df_acc['header_date'] = pd.to_datetime(df_acc['header_date'], format='%Y-%m-%dT%H:%M:%S')
         
