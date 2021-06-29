@@ -307,7 +307,7 @@ def acc_time_corr(acc_data):
     return acc_data
 
 
-def import_aks(serials, start_stop):
+def import_aks(serials, start_stop, acc_names='kalvelykke'):
     """
     Sort relevant accelerometerdata based on activity registration data.
 
@@ -317,6 +317,8 @@ def import_aks(serials, start_stop):
         List of serial numbers you want accelerometerdata from.
     start_stop : pd.DataFrame
         Dataframe containing activity registration intervals.
+    acc_names : str, optional
+        String of letters before -ID. The default is "kalvelykke".
 
     Returns
     -------
@@ -331,7 +333,7 @@ def import_aks(serials, start_stop):
                                             'norm'])
     for serial in serials:
         # Import files
-        df_acc = pd.read_csv('accelerometer\\kalvelykke-{0}.csv'.format(serial), header=1)
+        df_acc = pd.read_csv('accelerometer\\{0}-{1}.csv'.format(acc_names, serial), header=1)
         # Convert 'date' from str to datetime
         df_acc['header_date'] = pd.to_datetime(df_acc['header_date'], format='%Y-%m-%dT%H:%M:%S')
         

@@ -15,12 +15,14 @@ from tslearn.clustering import TimeSeriesKMeans
 # Data prepro
 act = pp.import_activity('behavior\\behaviors.csv')
 
+# Correct time to UTC
 act_35396 = act[act['Nofence ID'] == 35396]
 act_37368 = act[act['Nofence ID'] == 37368]
 act_35396 = pp.offset_time(act_35396, column='Tid', hour=-2, finetune=True, second=19)
 act_37368 = pp.offset_time(act_37368, column='Tid', hour=-2, finetune=False, second=0)
 act = pd.concat([act_35396, act_37368])
 
+# Connect activity observations with accelerometerdata
 serials = pp.unique_serials(act)
 start_stop = pp.activity_time_interval(act)
 acc = pp.import_aks(serials, start_stop)
@@ -68,12 +70,14 @@ vp.plot_pandas_classification_report(y_test_s, y_pred_s)
 # Data prepro
 act = pp.import_activity('behavior\\behaviors.csv')
 
+# Correct time to UTC
 act_35396 = act[act['Nofence ID'] == 35396]
 act_37368 = act[act['Nofence ID'] == 37368]
 act_35396 = pp.offset_time(act_35396, column='Tid', hour=-2, finetune=True, second=19)
 act_37368 = pp.offset_time(act_37368, column='Tid', hour=-2, finetune=False, second=0)
 act = pd.concat([act_35396, act_37368])
 
+# Connect activity observations with accelerometerdata
 serials = pp.unique_serials(act)
 start_stop = pp.activity_time_interval(act)
 acc = pp.import_aks(serials, start_stop)
@@ -123,7 +127,11 @@ vp.plot_pandas_classification_report(y_test_s, y_pred_s)
 #%% Unsupervised ruminant
 # Data prepro
 act = pp.import_activity('behavior\\ruminate.csv')
+
+# Correct time to UTC
 act = pp.offset_time(act, finetune=True, second=19)
+
+# Connect activity observations with accelerometerdata
 serials = pp.unique_serials(act)
 start_stop = pp.activity_time_interval(act)
 acc = pp.import_aks(serials, start_stop)

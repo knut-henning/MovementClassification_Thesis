@@ -13,9 +13,14 @@ import numpy as np
 from tensorflow import keras
 
 
-# Data prepro
+#%% Data prepro
+# Import activity observations
 act = pp.import_activity('behavior\\ruminate.csv')
+
+# Correct time to UTC
 act = pp.offset_time(act, finetune=True, second=19)
+
+# Connect activity observations with accelerometerdata
 serials = pp.unique_serials(act)
 start_stop = pp.activity_time_interval(act)
 acc = pp.import_aks(serials, start_stop)
